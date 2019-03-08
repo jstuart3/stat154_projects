@@ -1,0 +1,23 @@
+---
+title: "Project01"
+author: "Jonathan Stuart and Nikhil Sakhamuri"
+date: "3/3/2019"
+output: html_document
+---
+
+```{r}
+dat_all <- read.csv("data/sonoma-data-all.csv")
+dat_log <- read.csv("data/sonoma-data-log.csv")
+dat_net <- read.csv("data/sonoma-data-net.csv")
+dat_location <- read.csv("data/mote-location-data.txt")
+```
+
+```{r}
+hist(dat_log[,11], xlab = colnames(dat_log)[11])
+```
+
+```{r}
+scaled_dat_log <- matrix(scale(dat_log[, 5:11]), ncol = 7)
+colnames(scaled_dat_log) <- colnames(dat_log)[5:11]
+```
+
