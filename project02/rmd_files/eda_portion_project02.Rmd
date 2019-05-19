@@ -1,0 +1,121 @@
+---
+title: "eda_portion_project02"
+author: "Jonathan Stuart"
+date: "5/18/2019"
+output: pdf_document
+---
+
+```{r}
+library(ggplot2)
+library(GGally)
+library(gridExtra)
+```
+
+
+```{r}
+# reading in data
+img01 <- read.table('./image_data/image1.txt')
+img02 <- read.table('./image_data/image2.txt')
+img03 <- read.table('./image_data/image3.txt')
+
+img01$image <- 1
+img02$image <- 2
+img03$image <- 3
+
+all_img <- rbind(img01, img02, img03)
+
+col_names <- c('y', "x", "expert_label", "ndai", "sd", "corr", "df", "cf", 
+               "bf", "af", "an", "image")
+
+colnames(all_img) <- col_names
+colnames(img01) <- col_names
+colnames(img02) <- col_names
+colnames(img03) <- col_names
+```
+
+```{r}
+table(all_img$expert_label)[1]/dim(all_img)[1]*100
+table(all_img$expert_label)[2]/dim(all_img)[1]*100
+table(all_img$expert_label)[3]/dim(all_img)[1]*100
+```
+
+```{r}
+table(subset(all_img, image == 1)$expert_label)[1]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 1)$expert_label)[2]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 1)$expert_label)[3]/dim(subset(all_img, image == 1))[1]*100
+
+```
+
+
+```{r}
+table(subset(all_img, image == 2)$expert_label)[1]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 2)$expert_label)[2]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 2)$expert_label)[3]/dim(subset(all_img, image == 1))[1]*100
+```
+
+```{r}
+table(subset(all_img, image == 3)$expert_label)[1]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 3)$expert_label)[2]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 3)$expert_label)[3]/dim(subset(all_img, image == 1))[1]*100
+```
+
+
+
+```{r}
+ggplot(all_img) + geom_point(aes(x=x, y=y, color=expert_label))
+```
+
+
+```{r}
+plot1 <- ggplot(all_img) + geom_point(aes(x=ndai, y=sd, color=expert_label))
+plot2 <- ggplot(all_img) + geom_point(aes(x=ndai, y=corr, color=expert_label))
+plot3 <- ggplot(all_img) + geom_point(aes(x=df, y=cf, color=expert_label))
+plot4 <- ggplot(all_img) + geom_point(aes(x=df, y=bf, color=expert_label))
+plot5 <- ggplot(all_img) + geom_point(aes(x=df, y=af, color=expert_label))
+plot6 <- ggplot(all_img) + geom_point(aes(x=df, y=an, color=expert_label))
+
+
+plot7 <- ggplot(all_img) + geom_point(aes(x=sd, y=corr, color=expert_label))
+
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, ncol=2)
+
+
+```
+
+```{r}
+plot1 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=ndai)) + labs(x="expert label")
+plot2 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=sd)) + labs(x="expert label")
+plot3 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=corr)) + labs(x="expert label")
+plot4 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=df)) + labs(x="expert label")
+plot5 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=cf)) + labs(x="expert label")
+plot6 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=bf)) + labs(x="expert label")
+plot7 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=af)) + labs(x="expert label")
+plot8 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=an)) + labs(x="expert label")
+
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, plot8, ncol=4)
+```
+
+
+```{r}
+plot1 <- ggplot(all_img) + geom_density(aes(x=ndai, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="ndai", fill = "expert label") 
+plot2 <- ggplot(all_img) + geom_density(aes(x=sd, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="sd", fill = "expert label")
+plot3 <- ggplot(all_img) + geom_density(aes(x=corr, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="corr", fill = "expert label")
+plot4 <- ggplot(all_img) + geom_density(aes(x=df, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="df", fill = "expert label")
+plot5 <- ggplot(all_img) + geom_density(aes(x=cf, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="cf", fill = "expert label")
+plot6 <- ggplot(all_img) + geom_density(aes(x=bf, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="bf", fill = "expert label")
+plot7 <- ggplot(all_img) + geom_density(aes(x=af, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="af", fill = "expert label")
+plot8 <- ggplot(all_img) + geom_density(aes(x=an, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="an", fill = "expert label")
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, plot8, ncol=2)
+```
+

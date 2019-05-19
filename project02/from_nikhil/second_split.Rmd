@@ -1,0 +1,281 @@
+---
+title: "Second Method of Splitting Data"
+author: "Nikhil Sakhamuri"
+date: "May 17, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(MASS)
+library(caret)
+library(tree)
+library(readr)
+```
+
+```{r}
+library(glmnet)
+```
+
+```{r}
+library(ggplot2)
+```
+
+
+#3. On the second method of splitting Data
+```{r}
+split1_train = read_csv("./split2_train.csv")
+split1_val = read_csv("./split2_val.csv")
+test = read_csv("./split2_test.csv")
+```
+
+```{r}
+all_img_train_val1 <- rbind(split1_train, split1_train)
+all_img_train_val1 <- all_img_train_val1[c(all_img_train_val1[,3] != 0),]
+```
+
+```{r}
+test = test[c(test[,3] != 0),]
+```
+
+```{r}
+for (i in 1:(nrow(all_img_train_val1))) {
+  if (all_img_train_val1$expert_label[i] == -1) {
+    all_img_train_val1[i,3] = 0
+  }
+}
+```
+
+```{r}
+for (i in 1:(nrow(test))) {
+  if (test$expert_label[i] == -1) {
+    test[i,3] = 0
+  }
+}
+```
+
+
+
+```{r}
+class_acc <- function(y, p) {
+  acc = 1 - sum(y == p) / length(y)
+  return (acc)
+}
+```
+
+#classification on the first split
+
+#create folds
+```{r}
+set.seed(123)
+fold_ind = createFolds(all_img_train_val1$expert_label, 10)
+```
+
+```{r}
+log2_losses = c()
+lda2_losses = c()
+qda2_losses = c()
+tree2_losses = c()
+
+for (i in 1:10) {
+  val_ind = fold_ind[[i]]
+  
+  #train logistic model
+  log_mod2 = glm(expert_label~ sd + ndai + corr, data=all_img_train_val1[-val_ind,], family=binomial)
+  
+  #train lda model
+  lda_mod2 = lda(expert_label~sd + ndai + corr, data=all_img_train_val1[-val_ind,])
+  
+  #train qda model
+  qda_mod2 = qda(expert_label~sd + ndai + corr, data=all_img_train_val1[-val_ind,])
+  
+  #train decision tree model
+  tree_mod2 = tree(as.factor(expert_label)~sd + ndai + corr, data=all_img_train_val1[-val_ind,])
+  
+  tree_mod2 = prune.misclass(tree_mod2, best = 5)
+  
+  #predict and calculate loss of logistic models
+  log2_scores = predict(log_mod2, all_img_train_val1[val_ind, ], type = 'response')
+  log2_pred = ifelse(log2_scores > 0.5, 1, 0)
+  log2_losses = c(log2_losses, class_acc(all_img_train_val1$expert_label[val_ind], log2_pred))
+  
+  #predict and calculate loss of lda models
+  lda2_pred = predict(lda_mod2, all_img_train_val1[val_ind, ])
+  lda2_losses = c(lda2_losses, class_acc(all_img_train_val1$expert_label[val_ind], lda2_pred$class))
+  
+  #predict and calculate loss of qda models 
+  qda2_pred = predict(qda_mod2, all_img_train_val1[val_ind, ])
+  qda2_losses = c(qda2_losses, class_acc(all_img_train_val1$expert_label[val_ind], qda2_pred$class))
+  
+  #predict and calculate loss of tree models
+  tree2_scores = predict(tree_mod2, all_img_train_val1[val_ind,])
+  tree2_pred = ifelse(tree2_scores > 0.5, 1, 0)
+  tree2_losses = c(tree2_losses, class_acc(all_img_train_val1$expert_label[val_ind], tree2_pred[,2]))
+}
+```
+
+
+The training error for logistic regression across all 10 folds is `r log2_losses`. This model has an average loss of `r sum(log2_losses) / 10`.
+
+The training error for LDA across all 10 folds is `r lda2_losses`. This model has an average loss of `r sum(lda2_losses) / 10`.
+
+
+The training error for QDA across all 10 folds is `r qda2_losses`. This model has an average loss of `r sum(qda2_losses) / 10`.
+
+
+The training error for the Decision Tree Model across all 10 folds is `r tree2_losses`. This model has an average loss of `r sum(tree2_losses) / 10`.
+
+#train model on all training data then predict on test values
+```{r}
+#train logistic model
+log_mod = glm(expert_label~sd + ndai + corr, data=all_img_train_val1, family=binomial)
+
+#train lda model
+lda_mod = lda(expert_label~sd + ndai + corr, data=all_img_train_val1)
+
+#train qda model
+qda_mod = qda(expert_label~sd + ndai + corr, data=all_img_train_val1)
+
+#train decision tree model
+tree_mod = tree(as.factor(expert_label)~sd + ndai + corr, data=all_img_train_val1)
+
+tree_mod = prune.misclass(tree_mod2, best = 4)
+
+#predict and calculate loss of logistic models
+log_scores = predict(log_mod, test, type = 'response')
+log_pred = ifelse(log_scores > 0.5, 1, 0)
+log_loss = class_acc(test$expert_label, log_pred)
+
+#predict and calculate loss of lda models
+lda_pred = predict(lda_mod, test)
+lda_loss = class_acc(test$expert_label, lda_pred$class)
+
+#predict and calculate loss of qda models 
+qda_pred = predict(qda_mod, test)
+qda_loss = class_acc(test$expert_label, qda_pred$class)
+
+#predict and calculate loss of tree models
+tree_scores = predict(tree_mod, test)
+tree_pred = ifelse(tree_scores > 0.5, 1, 0)
+tree2_loss = class_acc(test$expert_label, tree_pred[,2])
+```
+
+
+The test error for logistic regression is `r log_loss`.
+
+The test error for lda is `r lda_loss`
+
+The test error for qda is `r qda_loss`
+
+The test error for the decision tree is `r tree2_loss`
+
+
+```{r}
+log_labels <- all_img_train_val1$expert_label[order(log2_scores, decreasing=TRUE)]
+log_roc = data.frame(TPR=cumsum(log_labels)/sum(log_labels), FPR=cumsum(!log_labels)/sum(!log_labels), log_labels)
+```
+
+```{r}
+ggplot(data = log_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of Logistic Regression")
+```
+
+```{r}
+lda_labels <- all_img_train_val1$expert_label[order(lda2_pred$posterior, decreasing=TRUE)]
+lda_roc = data.frame(TPR=cumsum(lda_labels)/sum(lda_labels), FPR=cumsum(!lda_labels)/sum(!lda_labels), lda_labels)
+```
+
+```{r}
+ggplot(data = lda_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of LDA")
+```
+```{r}
+qda_labels <- all_img_train_val1$expert_label[order(qda2_pred$posterior, decreasing=TRUE)]
+qda_roc = data.frame(TPR=cumsum(qda_labels)/sum(qda_labels), FPR=cumsum(!qda_labels)/sum(!qda_labels), qda_labels)
+```
+
+```{r}
+ggplot(data = qda_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of QDA")
+
+```
+
+
+
+```{r}
+tree_labels <- all_img_train_val1$expert_label[order(tree2_scores[,2], decreasing=TRUE)]
+tree_roc = data.frame(TPR=cumsum(tree_labels)/sum(tree_labels), FPR=cumsum(!tree_labels)/sum(!tree_labels), tree_labels)
+```
+
+```{r}
+ggplot(data = tree_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of Decision Tree")
+```
+
+
+#4 on second split of data. 
+
+##a.
+A good classification model found was logistic regression on the second split of data. Now, I will attempt to optimize logistic regression by seeing if there is a more optimal point that 0.5 to use as the decision boundary for the two classes.
+
+```{r}
+log_mod = glm(expert_label~sd + ndai + corr, data=all_img_train_val1, family=binomial(link="logit"))
+log_scores = predict(log_mod, test, type = 'response')
+
+```
+
+```{r}
+losses = c()
+
+for (i in 1:9) {
+  log_pred = ifelse(log_scores > i/10, 1, 0)
+  log_loss = class_acc(test$expert_label, log_pred)
+  losses = c(losses, log_loss)
+}
+
+x_ax = c(.1, .2, .3, .4, .5, .6, .7, .8, .9)
+
+plot(x=x_ax, y=losses, xlab = "Discrimination Percent", ylab = "Error Rate")
+```
+Just like in the first split of data it seems that a discrimination Percent of 0.4 is slightly better than 0.5. However, for the same reason, we will ignore this anomaly. Now lets see if we can reduce test_error with L1-regularization.
+
+```{r}
+cv.lasso <- cv.glmnet(data.matrix(all_img_train_val1[,-3]), all_img_train_val1$expert_label, alpha = 1, family = "binomial")
+                      
+log_reg_mod = glmnet(data.matrix(all_img_train_val1[,-3]), all_img_train_val1$expert_label, family = "binomial", alpha=1, lambda = cv.lasso$lambda.min)
+```
+
+Again, lets graphically analyze the different lambda values and visually determine approximately where a good lamda value would be. 
+
+```{r}
+plot(cv.lasso)
+```
+
+```{r}
+library(magrittr)
+```
+
+```{r}
+x.test<- model.matrix(expert_label ~., test)[,-1]
+probs = log_reg_mod %>% predict(newx = x.test)
+
+```
+
+```{r}
+log_pred = ifelse(probs > .5, 1, 0)
+
+log_loss = class_acc(test$expert_label, log_pred[,1])
+  
+print(log_loss)
+```
+Here we see that even with the L1-regularization we still get approximately the same error rate as before without it. It seems that neither L1-regularization nor changing the discrimination percentage helped much with lowering the test error rate. 
+
+##b.
+```{r}
+confusionMatrix(as.factor(log_pred[,1]), as.factor(test$expert_label))
+```
+The Confusion Matrix and summary statistics above give an analysis of the misclassification error of the logistic regression model. There seems to be an even split of false negatives and false positives indicating no tendency of the model towards either type of error. This logisitic regression model on the second split of data has a much higher specificity (about double) that of the model created by the first split of data while only having .06 less sensitivity. It is clear that this second model is the superior one. 
+
+
+##c/d.
+In conclusion, my analysis on parts a and b was largely fruitless for both splits of data. Although I made several interesting findings regarding my model (that a discriminative value of 0.4 was optimal to 0.5, and the optimal regularization paramter for L1-regularization), I failed to find anything that largely decreased my model's test error rate. Conversly, adding L1-regression actually largely increased test error for the first data split. On the positive side though, I believe the logistic regression model will work pretty well on future data. For the model made on the second split of data, on 95% of sets of test data, the prediction accuracy will be between 88.45& and 89.31%. This is a strong accuracy number. Overall the second split of data proved to be a much better split in terms of predictive power. All models realized a lower test error rate in the second split than the first. 

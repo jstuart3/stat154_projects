@@ -1,0 +1,22 @@
+---
+title: "Summary"
+author: "Jonathan Stuart"
+date: "5/17/2019"
+output: pdf_document
+---
+
+For at least the past 40 years, climate change and its potential impact on the Earth and the species that inhabit it have been hotly debated. Over the past decade, scientists have proven beyond a reasonable doubt that large scale, epoch making changes are underway with respect to the Earth and its climate. As an extremely dynamic system, the changes experienced by Earth's climate rest heavily on a number of interactive dependencies, the presence or absence of which could have measurable effects on the rate of increase of surface temperatures. Cloud coverage in the Arctic regions has been shown to be one such dependency, contributing significantly to rising sea levels through the role they play in helping to buffer the impact of rising temperatures the Arctic. Thus, directly, the ability to identify patterns of cloud coverage in the arctic via satellite imagery bears directly on the climate change debate.
+
+
+Because of the similarities in how snow and clouds interact with electromagnetic radiation, identifying areas of cloud coverage in arctic regions poses an interesting problem. To solve this classification problem, Shi, Yu, et al. set out to build "cloud detection algorithms that can efficiently process the massive [Multiangle Imaging SectroRadiometer] dataset...without requiring human intervention." The MISR has 9 cameras at 9 different angles each taking images over four regions of the EM spectrum. The MISR collects an average of 3.3 megabits of data per second over 233 distinct but overlapping 360km wide geographic paths around the Earth. Dealing with such large amounts of data requires that images of some spectra be transmitted at full resolution while others are transmitted at a lower resolution. For their study, Shi, Yu, et al. used a collection of 10 MISR orbits of path 26 over the Arctic region.
+
+
+Shi, Yu, et al. used three features selected through EDA and domain knowledge on which to build an enhanced linear correlation matching (ELCM) algorithm. They then predicted the probability of cloudiness by training Fisher's QDA on the labels outputted by the ELCM algorithm. With 100% coverage of the pixels for which a label is provided and 91.8% agreement with the expert labels of cloudiness classification, the ELCM method developed by Shi, Yu, et al. far outperformed the other classification algorithms under consideration. Further, the ELCM-QDA regime went beyond the binary labels of the ELCM algorithm by providing probability labels. Ultimately concluding that the three selected variables contained sufficient information to correctly classify cloud cover in arctic images, the methods employed by Shi, Yu, et al. proved impactful. In addition to contributing to the growing body of Earth science data with implications for long-standing problems like disaster forecasting and global food supply, Shi, Yu, et al. also demonstrated the ability of statistical thinking to help solve humanity's most pressing problems.
+
+
+
+
+
+
+
+

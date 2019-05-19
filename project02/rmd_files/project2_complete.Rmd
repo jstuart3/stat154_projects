@@ -1,0 +1,578 @@
+---
+title: "Project 2"
+author: "Jonathan Stuart, Nikhil Sakhamuri"
+output: pdf_document
+---
+
+For at least the past 40 years, climate change and its potential impact on the Earth and the species that inhabit it have been hotly debated. Over the past decade, scientists have proven beyond a reasonable doubt that large scale, epoch making changes are underway with respect to the Earth and its climate. As an extremely dynamic system, the changes experienced by Earth's climate rest heavily on a number of interactive dependencies, the presence or absence of which could have measurable effects on the rate of increase of surface temperatures. Cloud coverage in the Arctic regions has been shown to be one such dependency, contributing significantly to rising sea levels through the role they play in helping to buffer the impact of rising temperatures the Arctic. Thus, directly, the ability to identify patterns of cloud coverage in the arctic via satellite imagery bears directly on the climate change debate.
+
+
+Because of the similarities in how snow and clouds interact with electromagnetic radiation, identifying areas of cloud coverage in arctic regions poses an interesting problem. To solve this classification problem, Shi, Yu, et al. set out to build "cloud detection algorithms that can efficiently process the massive [Multiangle Imaging SectroRadiometer] dataset...without requiring human intervention." The MISR has 9 cameras at 9 different angles each taking images over four regions of the EM spectrum. The MISR collects an average of 3.3 megabits of data per second over 233 distinct but overlapping 360km wide geographic paths around the Earth. Dealing with such large amounts of data requires that images of some spectra be transmitted at full resolution while others are transmitted at a lower resolution. For their study, Shi, Yu, et al. used a collection of 10 MISR orbits of path 26 over the Arctic region.
+
+
+Shi, Yu, et al. used three features selected through EDA and domain knowledge on which to build an enhanced linear correlation matching (ELCM) algorithm. They then predicted the probability of cloudiness by training Fisher's QDA on the labels outputted by the ELCM algorithm. With 100% coverage of the pixels for which a label is provided and 91.8% agreement with the expert labels of cloudiness classification, the ELCM method developed by Shi, Yu, et al. far outperformed the other classification algorithms under consideration. Further, the ELCM-QDA regime went beyond the binary labels of the ELCM algorithm by providing probability labels. Ultimately concluding that the three selected variables contained sufficient information to correctly classify cloud cover in arctic images, the methods employed by Shi, Yu, et al. proved impactful. In addition to contributing to the growing body of Earth science data with implications for long-standing problems like disaster forecasting and global food supply, Shi, Yu, et al. also demonstrated the ability of statistical thinking to help solve humanity's most pressing problems.
+
+***
+**Exploratory Data Analysis**
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+library(ggplot2)
+library(GGally)
+library(gridExtra)
+library(MASS)
+library(caret)
+library(tree)
+library(readr)
+library(e1071)
+library(glmnet)
+library(gridExtra)
+library(magrittr)
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+# reading in data
+img01 <- read.table('./image_data/image1.txt')
+img02 <- read.table('./image_data/image2.txt')
+img03 <- read.table('./image_data/image3.txt')
+
+img01$image <- 1
+img02$image <- 2
+img03$image <- 3
+
+all_img <- rbind(img01, img02, img03)
+
+col_names <- c('y', "x", "expert_label", "ndai", "sd", "corr", "df", "cf", 
+               "bf", "af", "an", "image")
+
+colnames(all_img) <- col_names
+colnames(img01) <- col_names
+colnames(img02) <- col_names
+colnames(img03) <- col_names
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+table(all_img$expert_label)[1]/dim(all_img)[1]*100
+table(all_img$expert_label)[2]/dim(all_img)[1]*100
+table(all_img$expert_label)[3]/dim(all_img)[1]*100
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+table(subset(all_img, image == 1)$expert_label)[1]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 1)$expert_label)[2]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 1)$expert_label)[3]/dim(subset(all_img, image == 1))[1]*100
+
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+table(subset(all_img, image == 2)$expert_label)[1]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 2)$expert_label)[2]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 2)$expert_label)[3]/dim(subset(all_img, image == 1))[1]*100
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+table(subset(all_img, image == 3)$expert_label)[1]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 3)$expert_label)[2]/dim(subset(all_img, image == 1))[1]*100
+table(subset(all_img, image == 3)$expert_label)[3]/dim(subset(all_img, image == 1))[1]*100
+```
+Through examining a series of summary tables we found that, overall, considering all three images, approximately 40% of pixels were unlabelled, and more pixels than not were labelled non-cloudy vs. cloudy at 37% and 23% respectively. Digging deeper, variations in the distribution of labels for each image. In image 3, for example, approximately 52% of pixels were unlabelled while image 2 had slightly more than half as many as unlabelled, 28% indicating that image 2 had significantly more labelled pixels. Among all three images considered individually, there were more not cloudy pixels than cloudy, the biggest difference being found in image 1 at 44% and 18%, respectively.
+
+
+```{r, echo=FALSE, fig.cap="X, Y coordinates with region color based on xpert labels"}
+ggplot(all_img) + geom_point(aes(x=x, y=y, color=expert_label)) +
+  labs(x="x-coordinates", y="y-coordinates", title = "X, Y coordinates by Expert Labels")
+```
+Plotting the X and Y coordinates and filling regions based on the expert labels, we do see a pattern emerge. Clearly visible are three distinct regions of cloud cover along with a distinctly not cloudy region.
+
+Next, a series of pairwise scatterplots, boxplots and density plots helped us to vizualize the relationship between each of the variables, the radiance angles and the expert labels. Through the scatterplots, most notably we see that the not cloudy label is more prevalent for pixels with negative ndai values and low corr values, indicating predictive power. Between all the radiances, the plots were similar. Two are included for illustraion.
+
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+plot1 <- ggplot(all_img) + geom_point(aes(x=ndai, y=sd, color=expert_label))
+plot2 <- ggplot(all_img) + geom_point(aes(x=ndai, y=corr, color=expert_label))
+plot3 <- ggplot(all_img) + geom_point(aes(x=sd, y=corr, color=expert_label))
+plot4 <- ggplot(all_img) + geom_point(aes(x=df, y=cf, color=expert_label))
+plot5 <- ggplot(all_img) + geom_point(aes(x=df, y=bf, color=expert_label))
+plot6 <- ggplot(all_img) + geom_point(aes(x=df, y=af, color=expert_label))
+plot7 <- ggplot(all_img) + geom_point(aes(x=df, y=an, color=expert_label))
+```
+
+
+
+
+```{r, echo=F, fig.cap="Scatterplots of Variables"}
+#grid.arrange(plot1, plot2, plot3, ncol=1)
+```
+
+```{r, echo=F, fig.cap="Scatterplots of Radiance Angles"}
+#grid.arrange(plot5, plot6, ncol=1)
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+plot1 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=ndai)) + labs(x="expert label")
+plot2 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=sd)) + labs(x="expert label")
+plot3 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=corr)) + labs(x="expert label")
+plot4 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=df)) + labs(x="expert label")
+plot5 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=cf)) + labs(x="expert label")
+plot6 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=bf)) + labs(x="expert label")
+plot7 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=af)) + labs(x="expert label")
+plot8 <- ggplot(all_img) + geom_boxplot(aes(x=as.factor(expert_label), y=an)) + labs(x="expert label")
+```
+
+```{r, echo=F, fig.cap="Boxplots of ndai and radiance angle df by expert label"}
+#grid.arrange(plot1, plot4, ncol=1)
+```
+
+
+The variable ndai and the radiance angle df provided the most and least indicative boxplots with respect to the expert labels. As we can see from the plots, again we notice that negative ndai values indicate not cloudy, while radiance angle df alone provides no distinction between lables.
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+plot1 <- ggplot(all_img) + geom_density(aes(x=ndai, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="ndai", fill = "expert label") 
+plot2 <- ggplot(all_img) + geom_density(aes(x=sd, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="sd", fill = "expert label")
+plot3 <- ggplot(all_img) + geom_density(aes(x=corr, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="corr", fill = "expert label")
+plot4 <- ggplot(all_img) + geom_density(aes(x=df, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="df", fill = "expert label")
+plot5 <- ggplot(all_img) + geom_density(aes(x=cf, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="cf", fill = "expert label")
+plot6 <- ggplot(all_img) + geom_density(aes(x=bf, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="bf", fill = "expert label")
+plot7 <- ggplot(all_img) + geom_density(aes(x=af, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="af", fill = "expert label")
+plot8 <- ggplot(all_img) + geom_density(aes(x=an, fill=as.factor(expert_label)), alpha=0.5) + 
+  labs(x="an", fill = "expert label")
+```
+
+```{r, echo=F, fig.cap="Illustrative density plots"}
+#grid.arrange(plot1, plot3, plot5, plot6, ncol=2)
+```
+
+Through the density plots, we recognize a multi-modal character of the radiance angle not cloudy label and again see the clear distinctions of cloudy vs. not cloudy in the ndai and corr plots. 
+
+***
+**Data Preparation**  
+Recognizing that the data are not i.i.d., we came up with the following two ways of splitting the data into training, validation and test sets. The first method of splitting the data is to take validation and test sets from one image file, using the rest of the data to train. The second method involved randomly selecting the test data, using the x and y coordinates to select the validation data and using the rest of the data to train. We took this approach because, during the exploratory data exploration phase of the project, we noticed patterns between the labels and ranges of coordinates.
+
+After running a trivial classification, we achieved 17.67% classification accuracy.
+
+Referring back to the data exploration section of this report, because of the interactions between the ndai an corr variables, we believe there to be great predictive power in them. Clearly stated, our criteria for deciding on those two as the best features is based on the fact that negative ndai values are very much correlated with the not cloudy label, and on the fact that corr values closer to zero are similarly coordinated. Beyond that, we chose also the radiance angle cf as a best feature because the peak of the cloudy label corresponds with a valley of the not cloudy label and vice versa.
+
+***
+**Modelling - First Data Split**
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+split1_train = read_csv("./from_nikhil/split1_train.csv")
+split1_val = read_csv("./from_nikhil/split1_val.csv")
+test = read_csv("./from_nikhil/split1_test.csv")
+
+all_img_train_val1 <- rbind(split1_train, split1_train)
+all_img_train_val1 <- all_img_train_val1[c(all_img_train_val1[,3] != 0),]
+
+test = test[c(test[,3] != 0),]
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+for (i in 1:(nrow(all_img_train_val1))) {
+  if (all_img_train_val1$expert_label[i] == -1) {
+    all_img_train_val1[i,3] = 0
+  }
+}
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+for (i in 1:(nrow(test))) {
+  if (test$expert_label[i] == -1) {
+    test[i,3] = 0
+  }
+}
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+class_acc <- function(y, p) {
+  acc = 1 - sum(y == p) / length(y)
+  return (acc)
+}
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+#classification on the first split
+#create folds
+
+set.seed(123)
+fold_ind = createFolds(all_img_train_val1$expert_label, 10)
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+log2_losses = c()
+lda2_losses = c()
+qda2_losses = c()
+tree2_losses = c()
+
+for (i in 1:10) {
+  val_ind = fold_ind[[i]]
+  
+  #train logistic model
+  log_mod2 = glm(expert_label~ sd + ndai + corr, data=all_img_train_val1[-val_ind,], family=binomial)
+  
+  #train lda model
+  lda_mod2 = lda(expert_label~sd + ndai + corr, data=all_img_train_val1[-val_ind,])
+  
+  #train qda model
+  qda_mod2 = qda(expert_label~sd + ndai + corr, data=all_img_train_val1[-val_ind,])
+  
+  #train decision tree model
+  tree_mod2 = tree(as.factor(expert_label)~sd + ndai + corr, data=all_img_train_val1[-val_ind,])
+  
+  tree_mod2 = prune.misclass(tree_mod2, best = 5)
+  
+  #predict and calculate loss of logistic models
+  log2_scores = predict(log_mod2, all_img_train_val1[val_ind, ], type = 'response')
+  log2_pred = ifelse(log2_scores > 0.5, 1, 0)
+  log2_losses = c(log2_losses, class_acc(all_img_train_val1$expert_label[val_ind], log2_pred))
+  
+  #predict and calculate loss of lda models
+  lda2_pred = predict(lda_mod2, all_img_train_val1[val_ind, ])
+  lda2_losses = c(lda2_losses, class_acc(all_img_train_val1$expert_label[val_ind], lda2_pred$class))
+  
+  #predict and calculate loss of qda models 
+  qda2_pred = predict(qda_mod2, all_img_train_val1[val_ind, ])
+  qda2_losses = c(qda2_losses, class_acc(all_img_train_val1$expert_label[val_ind], qda2_pred$class))
+  
+  #predict and calculate loss of tree models
+  tree2_scores = predict(tree_mod2, all_img_train_val1[val_ind,])
+  tree2_pred = ifelse(tree2_scores > 0.5, 1, 0)
+  tree2_losses = c(tree2_losses, class_acc(all_img_train_val1$expert_label[val_ind], tree2_pred[,2]))
+}
+```
+
+After running logistic regression, LDA, QDA and decision tree models, we obtained the following results:  
+The training error for logistic regression across all 10 folds was `r log2_losses`, and this model had an average loss of `r sum(log2_losses) / 10`. The training error for LDA across all 10 folds was `r lda2_losses`, and this model had an average loss of `r sum(lda2_losses) / 10`. The training error for QDA across all 10 folds was `r qda2_losses`, and this model had an average loss of `r sum(qda2_losses) / 10`. The training error for the Decision Tree Model across all 10 folds was `r tree2_losses`, and this model had an average loss of `r sum(tree2_losses) / 10`.
+
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+#train model on all training data then predict on test values
+#train logistic model
+log_mod = glm(expert_label~sd + ndai + corr, data=all_img_train_val1, family=binomial)
+
+#train lda model
+lda_mod = lda(expert_label~sd + ndai + corr, data=all_img_train_val1)
+
+#train qda model
+qda_mod = qda(expert_label~sd + ndai + corr, data=all_img_train_val1)
+
+#train decision tree model
+tree_mod = tree(as.factor(expert_label)~sd + ndai + corr, data=all_img_train_val1)
+
+tree_mod = prune.misclass(tree_mod2, best = 4)
+
+#predict and calculate loss of logistic models
+log_scores = predict(log_mod, test, type = 'response')
+log_pred = ifelse(log_scores > 0.5, 1, 0)
+log_loss = class_acc(test$expert_label, log_pred)
+
+#predict and calculate loss of lda models
+lda_pred = predict(lda_mod, test)
+lda_loss = class_acc(test$expert_label, lda_pred$class)
+
+#predict and calculate loss of qda models 
+qda_pred = predict(qda_mod, test)
+qda_loss = class_acc(test$expert_label, qda_pred$class)
+
+#predict and calculate loss of tree models
+tree_scores = predict(tree_mod, test)
+tree_pred = ifelse(tree_scores > 0.5, 1, 0)
+tree2_loss = class_acc(test$expert_label, tree_pred[,2])
+```
+
+After training models on all training data then predicting on test values, we obtained the following results:  
+The test error for logistic regression was `r log_loss`, The test error for lda was `r lda_loss`, the test error for qda was `r qda_loss` and the test error for the decision tree was `r tree2_loss`
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+log_labels <- all_img_train_val1$expert_label[order(log2_scores, decreasing=TRUE)]
+log_roc = data.frame(TPR=cumsum(log_labels)/sum(log_labels), FPR=cumsum(!log_labels)/sum(!log_labels), log_labels)
+
+plot1 <- ggplot(data = log_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of Logistic Regression")
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+lda_labels <- all_img_train_val1$expert_label[order(lda2_pred$posterior, decreasing=TRUE)]
+lda_roc = data.frame(TPR=cumsum(lda_labels)/sum(lda_labels), FPR=cumsum(!lda_labels)/sum(!lda_labels), lda_labels)
+
+plot2 <- ggplot(data = lda_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of LDA")
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+qda_labels <- all_img_train_val1$expert_label[order(qda2_pred$posterior, decreasing=TRUE)]
+qda_roc = data.frame(TPR=cumsum(qda_labels)/sum(qda_labels), FPR=cumsum(!qda_labels)/sum(!qda_labels), qda_labels)
+
+plot3 <- ggplot(data = qda_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of QDA")
+
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+tree_labels <- all_img_train_val1$expert_label[order(tree2_scores[,2], decreasing=TRUE)]
+tree_roc = data.frame(TPR=cumsum(tree_labels)/sum(tree_labels), FPR=cumsum(!tree_labels)/sum(!tree_labels), tree_labels)
+
+plot4 <- ggplot(data = tree_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of Decision Tree")
+```
+
+```{r, ECHO=F, fig.cap="ROC Curves"}
+grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
+```
+
+Between both splits of data, the QDA model on the first split has the most optimal point on the ROC curve, when maximing for Sensitivity of Specifiticity -1. The point at FPR ~ 47 is this optimal point with Sensitvity ~56 and Specificity = ~56.
+
+**Modelling - Second Data Split**
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+#3. On the second method of splitting Data
+split1_train = read_csv("./from_nikhil/split2_train.csv")
+split1_val = read_csv("./from_nikhil/split2_val.csv")
+test = read_csv("./from_nikhil/split2_test.csv")
+
+all_img_train_val1 <- rbind(split1_train, split1_train)
+all_img_train_val1 <- all_img_train_val1[c(all_img_train_val1[,3] != 0),]
+
+test = test[c(test[,3] != 0),]
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+for (i in 1:(nrow(all_img_train_val1))) {
+  if (all_img_train_val1$expert_label[i] == -1) {
+    all_img_train_val1[i,3] = 0
+  }
+}
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+for (i in 1:(nrow(test))) {
+  if (test$expert_label[i] == -1) {
+    test[i,3] = 0
+  }
+}
+```
+
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+class_acc <- function(y, p) {
+  acc = 1 - sum(y == p) / length(y)
+  return (acc)
+}
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+#classification on the first split
+#create folds
+set.seed(123)
+fold_ind = createFolds(all_img_train_val1$expert_label, 10)
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+log2_losses = c()
+lda2_losses = c()
+qda2_losses = c()
+tree2_losses = c()
+
+for (i in 1:10) {
+  val_ind = fold_ind[[i]]
+  
+  #train logistic model
+  log_mod2 = glm(expert_label~ sd + ndai + corr, data=all_img_train_val1[-val_ind,], family=binomial)
+  
+  #train lda model
+  lda_mod2 = lda(expert_label~sd + ndai + corr, data=all_img_train_val1[-val_ind,])
+  
+  #train qda model
+  qda_mod2 = qda(expert_label~sd + ndai + corr, data=all_img_train_val1[-val_ind,])
+  
+  #train decision tree model
+  tree_mod2 = tree(as.factor(expert_label)~sd + ndai + corr, data=all_img_train_val1[-val_ind,])
+  
+  tree_mod2 = prune.misclass(tree_mod2, best = 5)
+  
+  #predict and calculate loss of logistic models
+  log2_scores = predict(log_mod2, all_img_train_val1[val_ind, ], type = 'response')
+  log2_pred = ifelse(log2_scores > 0.5, 1, 0)
+  log2_losses = c(log2_losses, class_acc(all_img_train_val1$expert_label[val_ind], log2_pred))
+  
+  #predict and calculate loss of lda models
+  lda2_pred = predict(lda_mod2, all_img_train_val1[val_ind, ])
+  lda2_losses = c(lda2_losses, class_acc(all_img_train_val1$expert_label[val_ind], lda2_pred$class))
+  
+  #predict and calculate loss of qda models 
+  qda2_pred = predict(qda_mod2, all_img_train_val1[val_ind, ])
+  qda2_losses = c(qda2_losses, class_acc(all_img_train_val1$expert_label[val_ind], qda2_pred$class))
+  
+  #predict and calculate loss of tree models
+  tree2_scores = predict(tree_mod2, all_img_train_val1[val_ind,])
+  tree2_pred = ifelse(tree2_scores > 0.5, 1, 0)
+  tree2_losses = c(tree2_losses, class_acc(all_img_train_val1$expert_label[val_ind], tree2_pred[,2]))
+}
+```
+
+After running logistic regression, LDA, QDA and decision tree models, we obtained the following results:  
+The training error for logistic regression across all 10 folds was `r log2_losses`. This model had an average loss of `r sum(log2_losses) / 10`. The training error for LDA across all 10 folds was `r lda2_losses`. This model had an average loss of `r sum(lda2_losses) / 10`. The training error for QDA across all 10 folds was `r qda2_losses`. This model had an average loss of `r sum(qda2_losses) / 10`. The training error for the Decision Tree Model across all 10 folds was `r tree2_losses`. This model had an average loss of `r sum(tree2_losses) / 10`.
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+#train model on all training data then predict on test values
+#train logistic model
+log_mod = glm(expert_label~sd + ndai + corr, data=all_img_train_val1, family=binomial)
+
+#train lda model
+lda_mod = lda(expert_label~sd + ndai + corr, data=all_img_train_val1)
+
+#train qda model
+qda_mod = qda(expert_label~sd + ndai + corr, data=all_img_train_val1)
+
+#train decision tree model
+tree_mod = tree(as.factor(expert_label)~sd + ndai + corr, data=all_img_train_val1)
+
+tree_mod = prune.misclass(tree_mod2, best = 4)
+
+#predict and calculate loss of logistic models
+log_scores = predict(log_mod, test, type = 'response')
+log_pred = ifelse(log_scores > 0.5, 1, 0)
+log_loss = class_acc(test$expert_label, log_pred)
+
+#predict and calculate loss of lda models
+lda_pred = predict(lda_mod, test)
+lda_loss = class_acc(test$expert_label, lda_pred$class)
+
+#predict and calculate loss of qda models 
+qda_pred = predict(qda_mod, test)
+qda_loss = class_acc(test$expert_label, qda_pred$class)
+
+#predict and calculate loss of tree models
+tree_scores = predict(tree_mod, test)
+tree_pred = ifelse(tree_scores > 0.5, 1, 0)
+tree2_loss = class_acc(test$expert_label, tree_pred[,2])
+```
+
+After training models on all training data then predicting on test values, we obtained the following results:  
+The test error for logistic regression was `r log_loss`, the test error for lda is `r lda_loss`, the test error for qda is `r qda_loss` and the test error for the decision tree is `r tree2_loss`
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+log_labels <- all_img_train_val1$expert_label[order(log2_scores, decreasing=TRUE)]
+log_roc = data.frame(TPR=cumsum(log_labels)/sum(log_labels), FPR=cumsum(!log_labels)/sum(!log_labels), log_labels)
+
+plot1 <- ggplot(data = log_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of Logistic Regression")
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+lda_labels <- all_img_train_val1$expert_label[order(lda2_pred$posterior, decreasing=TRUE)]
+lda_roc = data.frame(TPR=cumsum(lda_labels)/sum(lda_labels), FPR=cumsum(!lda_labels)/sum(!lda_labels), lda_labels)
+
+plot2 <- ggplot(data = lda_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of LDA")
+```
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+qda_labels <- all_img_train_val1$expert_label[order(qda2_pred$posterior, decreasing=TRUE)]
+qda_roc = data.frame(TPR=cumsum(qda_labels)/sum(qda_labels), FPR=cumsum(!qda_labels)/sum(!qda_labels), qda_labels)
+
+plot3 <- ggplot(data = qda_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of QDA")
+
+```
+
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+tree_labels <- all_img_train_val1$expert_label[order(tree2_scores[,2], decreasing=TRUE)]
+tree_roc = data.frame(TPR=cumsum(tree_labels)/sum(tree_labels), FPR=cumsum(!tree_labels)/sum(!tree_labels), tree_labels)
+
+plot4 <- ggplot(data = tree_roc, aes(x= FPR, y = TPR)) + geom_point() + ggtitle("ROC of Decision Tree")
+```
+
+```{r}
+library(gridExtra)
+grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+#4 on second split of data. 
+
+##a.
+log_mod = glm(expert_label~sd + ndai + corr, data=all_img_train_val1, family=binomial(link="logit"))
+log_scores = predict(log_mod, test, type = 'response')
+
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+losses = c()
+
+for (i in 1:9) {
+  log_pred = ifelse(log_scores > i/10, 1, 0)
+  log_loss = class_acc(test$expert_label, log_pred)
+  losses = c(losses, log_loss)
+}
+
+x_ax = c(.1, .2, .3, .4, .5, .6, .7, .8, .9)
+
+plot(x=x_ax, y=losses, xlab = "Discrimination Percent", ylab = "Error Rate")
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+cv.lasso <- cv.glmnet(data.matrix(all_img_train_val1[,-3]), all_img_train_val1$expert_label, alpha = 1, family = "binomial")
+                      
+log_reg_mod = glmnet(data.matrix(all_img_train_val1[,-3]), all_img_train_val1$expert_label, family = "binomial", alpha=1, lambda = cv.lasso$lambda.min)
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+#plot(cv.lasso)
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+x.test<- model.matrix(expert_label ~., test)[,-1]
+probs = log_reg_mod %>% predict(newx = x.test)
+
+```
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+log_pred = ifelse(probs > .5, 1, 0)
+
+log_loss = class_acc(test$expert_label, log_pred[,1])
+  
+print(log_loss)
+```
+
+```{r}
+##b.
+confusionMatrix(as.factor(log_pred[,1]), as.factor(test$expert_label))
+```
+
+
+***
+**Diagnostics - First Data Split**  
+A good classification model found on the first split of data was logistic regression. Overall, this first split was less effective than the second split; below I will analyze the logistic regression model on this split. First we attempted to optimize logistic regression by seeking a more optimal point than 0.5 to use as the decision boundary for the two classes. The optimal discriminative point was determined to be 0.4 rather than 0.5. However, the margin was close enough that the difference was trivial so we decided to keep 0.5 as the discriminative point. 
+
+After adding an L1-regularization to the data we graphically analyzed the different lambda values and visually determined a good lambda value. Even with the L1-regularization, however, the error rate was worse than before, without it. It seems that neither L1-regularization nor changing the discrimination percentage helped much with lowering the test error rate and in fact, L1-regularization was counterproductive with this first split of data.
+
+Finally, by analyzing the Confusion Matrix, it is clear that this model classified most points as class 0. This turned out to be the correct decision as it was correct `r (14533 + 3609) / 14533` times. This model was also much more prone to making false positives than false negatives, which ties into the propensity of this model to classify points into class 0.
+
+**Diagnostics - Second Data Split**  
+A good classification model found was logistic regression on the second split of data. Again, we attempted to optimize logistic regression by seeking a more optimal point than 0.5 to use as the decision boundary for the two classes. As with the first split of data, it appeared as if a Discrimination Percent of 0.4 is slightly better than 0.5. However, for the same reason, we ignored this anomaly. We again attempted to reduce test_error with L1-regularization.
+
+Again, after adding an L1-regularization to the data we graphically analyzed the different lambda values and visually determined a good lambda value.  
+
+We found that even with the L1-regularization, we still got approximately the same error rate as before, without it. It seems that neither L1-regularization nor changing the discrimination percentage helped with lowering the test error rate. 
+
+The Confusion Matrix and summary statistics gave an analysis of the misclassification error of the logistic regression model. There seems to be an even split of false negatives and false positives indicating no tendency of the model towards either type of error. This logisitic regression model on the second split of data has a much higher specificity (about double) that of the model created by the first split of data while only having .06 less sensitivity. It is clear that this second model is the superior one. 
+
+In conclusion, our analysis on parts a and b was largely fruitless for both splits of data. Although we made several interesting findings regarding our model (that a discriminative value of 0.4 was optimal to 0.5, and the optimal regularization paramter for L1-regularization), we failed to find anything that largely decreased my model's test error rate. Conversly, adding L1-regression  largely increased test error for the first data split. On the positive side, we believe the logistic regression model will work well on future data. For the model made on the second split of data, on 95% of sets of test data, the prediction accuracy will be between 88.45& and 89.31%. This is a strong accuracy value. Overall the second split of data proved to be a much better split in terms of predictive power. All models realized a lower test error rate in the second split than the first. 
+
+

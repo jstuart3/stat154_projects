@@ -1,0 +1,292 @@
+---
+title: "Project 02"
+author: "Jonathan Stuart"
+date: "5/8/2019"
+output: pdf_document
+---
+```{r}
+library(ggplot2)
+library(caret)
+library(ModelMetrics)
+library(readr)
+```
+
+```{r}
+# reading in data
+img01 <- read.table('./image_data/image1.txt')
+img02 <- read.table('./image_data/image2.txt')
+img03 <- read.table('./image_data/image3.txt')
+
+img01$image <- 1
+img02$image <- 2
+img03$image <- 3
+
+all_img <- rbind(img01, img02, img03)
+
+col_names <- c('y', "x", "expert_label", "ndai", "sd", "corr", "df", "cf", 
+               "bf", "af", "an", "image")
+
+colnames(all_img) <- col_names
+colnames(img01) <- col_names
+colnames(img02) <- col_names
+colnames(img03) <- col_names
+```
+
+**First Method of Splitting Data**  
+
+Validation and test sets from one image file, use the rest to train.  
+
+```{r}
+# splitting data into training, validation, test sets
+set.seed(657827)
+
+# creating a test set of 10% of the data
+test_size <- floor(nrow(all_img)*.1)
+test_index <- sample(seq_len(nrow(subset(all_img, image == 1))), 
+                     size = test_size)
+
+all_img_test1 <- all_img[test_index, ]
+remaining_all_img1 <- all_img[-test_index, ]
+
+# taking 20%, by length, of remaining data for validation from image1 dataset
+val_size1 <- floor(nrow(remaining_all_img1)*.2)
+val_index1 <- sample(seq_len(nrow(subset(remaining_all_img1, image == 1))), 
+                     size = val_size1)
+all_img_val1 <- remaining_all_img1[val_index1, ]
+
+# remaining data assigned to training set
+all_img_train1 <- remaining_all_img1[-val_index1, ]
+
+write_csv(all_img_test1, "./split1_test.csv")
+write_csv(all_img_val1, "./split1_val.csv")
+write_csv(all_img_train1, "./split1_train.csv")
+
+#all_img$expert_label2 <- as.factor(all_img$expert_label)
+#all_img_train$expert_label2 <- as.factor(all_img_train$expert_label)
+#all_img_test$expert_label2 <- as.factor(all_img_test$expert_label)
+```
+
+```{r}
+# # checking results
+# intersect(row.names(all_img_test), row.names(all_img_train))
+# intersect(row.names(all_img_test), row.names(all_img_val))
+# intersect(row.names(all_img_train), row.names(all_img_val))
+
+```
+
+**Second Method of Splitting Data**
+Spatial. x<= some #, t <= some number in all image files.
+
+Performing EDA
+
+```{r}
+# lengths <- matrix(0, nrow = 400, ncol = 6)
+# colnames(lengths) <- c('img01_y', "img01_x", 'img02_y', "img02_x", 
+#                        'img03_y', "img03_x")
+# for (i in range(all_img$y)[1]:range(all_img$y)[2]) {
+#   lengths[i, 1] <- dim(subset(img01, y <= i))[1]
+# }
+```
+
+
+```{r}
+# fig1 <- ggplot() + 
+#   #geom_point(aes(num_predictors, model_quality$mse)) + 
+#   geom_line(aes(seq(400), lengths[, 'count'])) + 
+#   xlab("Number of Predictors") + 
+#   ylab("MSE") + 
+#   labs(title="Training MSE v. Number of Predictors")
+# fig1
+```
+
+```{r}
+# # how many records are within each coordinate grid?
+# total_length <- dim(all_img)[1]
+# dim(subset(all_img, y <= 100))[1]/total_length
+# dim(subset(all_img, 100 < y  & y <= 200))[1]/total_length
+# dim(subset(all_img, 200 < y  & y <= 300))[1]/total_length
+# dim(subset(all_img, 300 < y  & y <= 400))[1]/total_length
+# 
+# dim(subset(all_img, x <= 100))[1]/total_length
+# dim(subset(all_img, 100 < x  & x <= 200))[1]/total_length
+# dim(subset(all_img, 200 < x  & x <= 300))[1]/total_length
+# dim(subset(all_img, 300 < x  & x <= 400))[1]/total_length
+# 
+# dim(subset(all_img, 200 < y  & y <= 300 & 100 < x  & x <= 200))[1]/total_length
+# dim(subset(all_img, 100 < y  & y <= 200 & 100 < x  & x <= 200))[1]/total_length
+```
+
+```{r}
+# splitting data into training, validation, test sets
+set.seed(657827)
+
+outcome_name <- 'expert_label'
+predictor_names <- names(all_img)[names(all_img) != c(outcome_name, 'image')]
+
+
+#all_img$expert_label2 <- as.factor(all_img$expert_label)
+outcome_name <- 'expert_label2'
+
+# creating a test set of 10% of the data
+test_size <- floor(nrow(all_img)*.1)
+test_index <- sample(seq_len(nrow(subset(all_img))), 
+                     size = test_size)
+
+all_img_test2 <- all_img[test_index, ]
+remaining_all_img2 <- all_img[-test_index, ]
+
+# taking roughly 17%, by length, of remaining data for validation 
+# from within specified coordinates
+all_img_val2 <- rbind(subset(remaining_all_img2, 200 < y  & y <= 300 & 
+                              100 < x  & x <= 200), 
+                     subset(remaining_all_img2, 100 < y  & y <= 200 & 
+                              100 < x  & x <= 200))
+
+all_img_train2 <- remaining_all_img2[-row(all_img_val2), ]
+
+write_csv(all_img_test2, "./split2_test.csv")
+write_csv(all_img_val2, "./split2_val.csv")
+write_csv(all_img_train2, "./split2_train.csv")
+
+
+```
+
+
+
+***
+**Accuracy of Trivial Classifier**
+```{r}
+all_img_val_test <- rbind(all_img_val, all_img_test)
+nrow(subset(all_img_val_test, expert_label == '1')) / nrow(all_img_val_test)
+```
+
+Average accuracy of this trivial classifier will be higher when the images are cloudier.
+
+
+***
+**Best Features**
+
+```{r}
+cor(all_img[,-which(names(all_img) == 'expert_label2')], all_img$expert_label)
+```
+
+
+
+```{r}
+p <- ggplot(all_img, aes(all_img$af)) + 
+  geom_density() +
+  xlab("CORR") + 
+  ylab("Density") + 
+  labs(title="CORR Density Plot")
+p
+```
+
+
+***
+**K-fold CV**
+
+
+```{r}
+k_fold_multi_class_classifier <- function(folds, classifier) {
+  
+  svm1 <- svm(expert_label2~., data=all_img_train, 
+          method=classifier, kernal="radial", 
+          gamma=0.1, cost=10, cross = folds)
+
+  print(summary(svm1))
+
+  prediction <- predict(svm1, all_img_test)
+  xtab <- table(all_img_test$expert_label, prediction)
+  print(xtab)
+
+  loss <- abs(logLoss(all_img_test$expert_label, unfactor(prediction)))
+  return(loss)
+}
+
+k_fold_multi_class_classifier(2, "C-classification")
+
+# make list of possible classifiers
+```
+
+**Referencees**
+[Splitting Data](https://medium.freecodecamp.org/what-to-do-when-your-training-and-testing-data-come-from-different-distributions-d89674c6ecd8)
+[Trivial Classifier](https://medium.com/analytics-vidhya/a-guide-to-machine-learning-in-r-for-beginners-part-5-4c00f2366b90)
+[Variable Importance](http://dataaspirant.com/2018/01/15/feature-selection-techniques-r/)
+[Classification Implementation](https://amunategui.github.io/binary-outcome-modeling/)
+[Classification Implementation](https://rstudio-pubs-static.s3.amazonaws.com/198425_010cec82017b4598a683be5122e53e85.html)
+
+
+```{r}
+# ## abandoned##
+# 
+# outcome_name <- 'expert_label'
+# 
+# predictor_names <- names(all_img)[names(all_img) != outcome_name]
+# predictor_names <- predictor_names[-c(11:12)]
+# 
+#  all_img$expert_label2 <- as.factor(all_img$expert_label)
+#  outcome_name <- 'expert_label2'
+# 
+# 
+# 
+# train_control <- trainControl(method='cv', number=3, returnResamp='none', summaryFunction = twoClassSummary, classProbs = T)
+# 
+# # model <- train(all_img_train[,predictor_names], all_img_train[,outcome_name], 
+# #                   method='gbm', 
+# #                   trControl=train_control,  
+# #                   preProc = c("center", "scale"))
+# 
+# objModel <- train(all_img_train[,-c(3, 12)], all_img_train[,outcome_name], 
+#                   method='gbm', 
+#                   trControl=train_control,  
+#                   metric = "ROC",
+#                   preProc = c("center", "scale"))
+# 
+# predictions <- predict(object=model, all_img_test[,predictor_names], type='raw')
+# head(predictions)
+# 
+# loss <- abs(logLoss(all_img_test$expert_label, unfactor(predictions)))
+```
+
+
+
+```{r}
+## abandoned ##
+
+# # define train control for k fold cross validation
+# train_control <- trainControl(method="cv", number=3)
+# 
+# # fit model
+# model <- train(expert_label~., data=all_img_train, trControl=train_control, method="gbm")
+# 
+# # results summary
+# print(model)
+
+# predictions <- predict(object=model, all_img_test, type='raw')
+# head(predictions)
+
+```
+
+```{r}
+# # splitting data into training, validation, test sets
+# set.seed(657827)
+# 
+# test_size01 <- floor(nrow(img01)*.1)
+# test_index <- sample(seq_len(nrow(img01)), size = test_size01)
+# img01_test <- img01[test_index, ]
+# remaining01 <- img01[-test_index, ]
+# 
+# img01_train
+# img01_val
+# 
+# 
+# test_size02 <- floor(nrow(img02)*.1)
+# img02_train
+# img02_val
+# img02_test
+# 
+# test_size03 <- floor(nrow(img03)*.1)
+# img03_train
+# img03_val
+# img03_test
+```
