@@ -1,0 +1,297 @@
+---
+title: "Project01"
+author: "Jonathan Stuart (3032239913) and Nikhil Sakhamuri (3031843166)"
+date: "3/25/2019"
+output:
+  rmarkdown::pdf_document:
+    fig_caption: yes        
+    includes:  
+      in_header: file.tex
+---
+
+```{r, echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+# mounting libraries
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(stringr)
+library(magrittr)
+library(readr)
+library(dplyr)
+```
+
+```{r, echo=FALSE}
+# reading in the data
+all_data <- read.csv("data/sonoma-data-all.csv")
+log_data <- read.csv("data/sonoma-data-log.csv")
+net_data <- read.csv("data/sonoma-data-net.csv")
+new_net_data <- read.csv("clean_data/new_new_data.csv")
+```
+## Data Collection
+This was a case study of a wireless sensor network that recorded 44 days in the life of a 70-meter tall redwood tree from Tuesday, April 27th 2004 to Thursday, June 10th 2004. The readings were taken from a redwood tree located in the Grove of Old Trees in Sonoma, California.  Sensors were taking readings every five minutes throughout these 44 days, leading to a total of 1.7 million data points over 33 motes. Each mote contained various sensors that measured four different data values throughout their deployment. The four values of interest were temperature, relative humidity, incident photosynthetically active radiation (PAR), and ambient PAR. After the conclusion of the study and analysis of the obtained data, several lessons were learned and several important takeaways were made. The first lesson that was learned was the extreme importance of being extremely precise when setting up delicate sensors. This is because even a slight variation in the position, angle, etc. of extremely sensitive sensors can cause unwanted variation in the data. This is what happened with the PAR sensors in this study; initially it was thought that fluctuations in the PAR readings were caused by differences in received sunlight caused by blocking foliage. However, it was later determined that the fluctuations were similar on similar days, meaning that the fluctuations were actually caused by slightly different orientations for each light sensor. A second lesson that was learned in the end was the importance of having a better apparatus for catching and handling failures. Of the 1.7 million data points that were supposed to be received, only 820,700 were usable for analysis. Loggers with larger memory space are one option to avoid this. In conclusion, the deployed macroscope of wireless sensors captured the complex environmental interactions of the microclimate surrounding a coastal redwood tree. This study affirmed the existence of spatial gradients in the microclimate around a redwood tree and captured enough data to track the changes in these gradients over time. This data can be extremely useful in helping to validate other biological theories. This can in turn lead to a better grasp of large-scale processes of carbon and water exchange within a forest ecosystem.   
+
+All the data was recorded during a 44 day period from Tuesday, April 27th 2004 to Thursday, June 10th, 2004. Measurements were taken every 5 minutes during this period. This came out to a hypothetical total of 50,540 real-world data points per mote, or a total of 1.7 million data points over 33 motes. However, only 820,700 points were usable. . The four variables of interest were temperature, relative humidity, incident photosynthetically active radiation (PAR), and ambient PAR. Temperature and relative humidity were measured because they are necessary variables when attempting to analyze transpiration patterns of redwood trees. Incident PAR provides information about the energy available to plants for photosynthesis and gives insight about the drivers for carbon balance in the forest. Additionally, satellite remote sensing measurements of the reflectance of the land surface can be validated by looking at the ratio of reflected to incident PAR. Initially, the scientists considered measuring total solar radiation and barometric pressure as well. However, both these measurements were decided against. Total solar radiation was left out because it required sensor was overly sensitive and PAR readings gave pretty much the same information. Barometric pressure was excluded because it was concluded there were no appreciable differences in barometric pressure across the height of the tree. The data was collected by deploying a macroscope of wireless sensors across a singular redwood tree. Starting at 15 meters from ground level and going up to 70 meters from ground level, nodes of the macroscope were placed on the tree with 2 meters of spacing between nodes. This spacing ensured that the gradient of each variable could be captured with adequate precision. Most of the sensors were placed on the west side of the tree because the west side had a thicker canopy which would help shield the nodes from direct environmental effects. Additionally, each node was placed between 0.1-1m from the trunk in order to ensure that the sensors would record only the microclimatic trends of the tree rather than the wider environment. In order to account for possible failures in the system to properly record and transmit the data readings, a local data logging system was used. The data logger recorded every reading taken by every query before the readings were passed through the larger network. This local data logging system was used later to analyze the performance of the system as a whole. Sonoma-data-log.csv contains the data retrieved from the data logs after deployment while sonoma-data-net.csv contains only the data retrieved over the wireless network. Sonoma-data-net.csv has a much lower yield than Sonoma-data-log.csv; Sonoma-data-net.csv is missing an entire two-weeks of data, whereas that two-week period is present in Sonoma-data-log.csv.
+
+## Data Cleaning
+**Finding and Scaling Inconsistent Data**  
+After viewing the histograms below (See Fig. 1), we notice that the voltage data is the only data that appears to be 
+inconsistent between the net and log data sets. In general, the voltage values in the net data set appear to 
+be about two orders of magnitude larger than the voltage values in the log data set. In order to convert the data
+to the same range, we used a vectorized operation to divide each of the net voltage values by 100, and then 
+reassigned that scaled column to the original voltage column in the net data set. 
+```{r, echo=FALSE}
+# function to generate paired histograms
+graph_func <- function(log_dat, net_dat, val, bins){
+  log <- data.frame(dummy_var = log_dat)
+  log$source <- 'log'
+  net <- data.frame(dummy_var = net_dat)
+  net$source <- 'net'
+  combination <-rbind(log, net)
+  ggplot(combination, aes(dummy_var, fill = source)) + geom_histogram(binwidth = bins) + labs(title = val, x = val)
+}
+```
+
+```{r, warning=FALSE, echo=FALSE, fig.cap="Data Consistency", include=FALSE}
+plot1 <- graph_func(log_data$voltage, net_data$voltage, 'voltage', 30) 
+plot2 <- graph_func(log_data$depth, net_data$depth, 'depth', 30)
+plot3 <- graph_func(log_data$humidity, net_data$humidity, 'humidity', 30) + xlim(0, 1000)
+plot4 <- graph_func(log_data$humid_temp, net_data$humid_temp, 'temp', 30)
+plot5 <- graph_func(log_data$humid_adj, net_data$humid_adj, 'adjusted humidity', 30) + xlim(0, 1000)
+
+grid.arrange(arrangeGrob(plot1, plot2, plot3, plot4, ncol=2), arrangeGrob(plot5, ncol = 2), heights=c(4, 2))
+
+
+
+```
+
+
+
+```{r, echo=FALSE}
+# converting voltage data to same range
+#summary(net_data$voltage)
+net_data$voltage <- net_data$voltage/100
+#summary(net_data$voltage)
+
+```
+
+********************************************************************************
+**Comments on Missing Data**
+
+In order to count the number of missing values in each of the datasets, we wrote a function
+that calls `is.na()` in a vectorized fashion over each of the columns in a given data set 
+and sums the number of affirmative responses. Those sums are then stored in a vector and returned
+as an atomic vector of integer values. That is, we wrote a function to count the number of missing
+values in each column and store the sum in a new vector. We found that the net data set had the 
+fewest number of missing values with 4263 observations returning a missing value in each of 5 columns. 
+The log data set had roughly double that amount of missing values with 8270 observations returning
+a missing value in each of 5 columns. We counted missing values for the humidity, temperature, 
+adjusted humidity and top and bottom PAR values (incident and reflected). When each variable returned
+a missing value, missing values were also returned for the 4 measured variables. All other variables in the
+data sets yielded no missing values. 
+
+With respect to the time period, we found that the log data initially gave no insight into when the missing values 
+were recorded because the Result Time variable was a uniform value throughout the data set. Using Epoch 
+values as a proxy for time values, we produced a visualization that shed some light on the missing values. 
+We found that after the 2500th (approximately 05/08/2004) epoch up until the 8000th epoch approximately 05/25/2004), the missing values followed a relatively cyclic pattern before establishing a rhythm of constant increase. We also found that the number of net-collected missing values was roughly a third of the number of log-collected missing values during this same time period (See Figure 2). 
+
+```{r, echo=FALSE}
+# counting missing values
+na_counts_func <- function(df) {
+  counts <- vector()
+  for (i in 1:11){
+    counts[i] <- sum(is.na(df[,i]))
+  }
+  return(counts)
+}
+
+# counting missing values in each dataframe
+#na_counts_func(log_data)
+#na_counts_func(net_data)
+#na_counts_func(all_data)
+```
+
+```{r, warning=FALSE, echo=FALSE, fig.cap="Missing Values by Epoch", include=FALSE}
+# function to generate paired histograms
+graph_func <- function(log_dat, net_dat, val, bins){
+  log <- data.frame(dummy_var = log_dat)
+  log$source <- 'log'
+  net <- data.frame(dummy_var = net_dat)
+  net$source <- 'net'
+  combination <-rbind(log, net)
+  ggplot(combination, aes(dummy_var, fill = source)) + geom_histogram(binwidth = bins) + labs(title = "Missing Values by Time Period", x = val, y="Missing Value Count")
+}
+
+net_fltr <- is.na(net_data$humidity)
+log_fltr <- is.na(log_data$humidity)
+
+missing_value_plot <- graph_func(log_data$epoch[log_fltr], net_data$epoch[net_fltr], val = 'Epoch', 50) + xlim(2500, 10000)
+missing_value_plot
+```
+
+```{r, echo=FALSE}
+# removing outliers based on voltage
+net_data <- net_data[(net_data$voltage > 2.4 || net_data$voltage < 3) & !is.na(net_data[,11]), ]
+log_data <- log_data[(log_data$voltage > 2.4 || log_data$voltage < 3) & !is.na(log_data[,11]), ]
+
+# creating new_all_data dataset with scaled voltage columns, missing values removed by voltage value
+new_all_data <- rbind(net_data, log_data)
+
+#removing final missing values
+new_all_data <- new_all_data[!is.na(new_all_data$humidity), ]
+```
+
+
+********************************************************************************
+**Incorporating Location Data**
+```{r, echo=FALSE}
+# reading in data
+location_data <- read.table("data/mote-location-data.txt", header = TRUE)
+
+# ordering location data by node ID
+location_data <- location_data[order(location_data$ID), ]
+
+# renumbering rows
+rownames(location_data) <- location_data$ID
+```
+
+```{r, warning=FALSE, echo=FALSE}
+# function to add location data to a given data frame
+add_cols <- function(dat){
+  # adding empty columns to dataframe
+  dat$height <- 0
+  dat$direction <- 0
+  dat$distance <- 0
+  dat$tree <- 0
+  
+  # inserting values by node id
+  for (i in 1:nrow(dat)) {
+    try(dat$height[i] <- location_data$Height[location_data$ID == dat$nodeid[i]], silent = TRUE)
+    try(dat$direction[i] <- as.character(location_data$Direc[location_data$ID == dat$nodeid[i]]), silent = TRUE)
+    try(dat$distance[i] <- location_data$Dist[location_data$ID == dat$nodeid[i]], silent = TRUE)
+    try(dat$tree[i] <- as.character(location_data$Tree[location_data$ID == dat$nodeid[i]]), silent = TRUE)
+  }
+  
+  return(dat)
+}
+```
+
+```{r, echo=FALSE}
+# #to be uncommented at end; for now, use the csv written here
+# new_net_data <- add_cols(net_data)
+# write.csv(new_net_data, "./new_new_data.csv")
+```
+
+```{r, echo=FALSE, results="hide"}
+length(new_net_data)
+```
+
+
+
+After incorporating the location data into the net data file, there are now a total of 15 variables in our `new_net_data` dataframe.
+
+********************************************************************************  
+**Investigating and Removing Outliers**  
+```{r, warning=FALSE, echo=FALSE, fig.cap="Hamatop Plot", include=FALSE}
+# identifying other outliers through plots
+hum <- data.frame(hum = new_net_data$humidity)
+temp <- data.frame(temp = new_net_data$humid_temp)
+top <- data.frame(hamatop = as.numeric(new_net_data$hamatop))
+bot <- data.frame(hamabot = new_net_data$hamabot)
+```
+
+```{r, echo=FALSE, fig.cap="Hamatop", include=FALSE}
+plot(top$hamatop, ylab = "Hamatop", main = "Hamatop Plot")
+```
+
+```{r, echo=FALSE, fig.cap="Hamabot", include=FALSE}
+plot(bot$hamabot, ylab = "Hamabot", main = "Hamabot Plot")
+```
+
+
+
+```{r, echo=FALSE, fig.cap="Temperature and Humidity", warning=FALSE, include=FALSE}
+hum_plot <- ggplot(hum, aes(hum)) + geom_histogram(binwidth = 5) + labs(title = "Humidity", x = "Humidity") + xlim(0, 125)
+temp_plot <- ggplot(temp, aes(temp)) + geom_histogram(binwidth = 5) + labs(title = "Temperature", x = "Temperature") + xlim(-100, 200)
+
+grid.arrange(arrangeGrob(temp_plot, hum_plot, ncol=2))
+
+```
+
+Examining the quantiles and studying the plots in Figures 3, 4 and 5, we came to the conclusion that we should eliminate humidity values over 100%, as was also mentioned in the Tolle, et al. paper. We also found that temperatures below zero and over 100 were likely outliers. We made these decisions with respect to the removal of outliers given out understanding of Sonoma County and the weather it experiences during the months when the experiment was conducted. We also applied the technique discussed within the Tolle, et al. paper whereby records were removed when that record's voltage fell outside of a predetermined range, even though this method is flawed, as discussed in our findings. This decision was made because it is reasonable to assume that sensors with peaking or failing voltage measurements were incapable of recording accurate data measurements, even if only some of the data measurements are compromised, as discussed in our findings. 
+
+```{r, echo=FALSE, include=FALSE}
+quantile(new_net_data$humidity, na.rm = TRUE)
+quantile(new_net_data$humid_temp, na.rm = TRUE)
+quantile(new_net_data$hamatop, na.rm = TRUE)
+quantile(new_net_data$hamabot, na.rm = TRUE)
+quantile(new_net_data$depth, na.rm = TRUE)
+```
+
+```{r, echo=FALSE}
+# removing outliers from temp data
+new_net_data <- new_net_data[(new_net_data$humid_temp < 100), ]
+```
+
+```{r, echo=FALSE}
+# removing outliers from humidity data
+new_net_data <- new_net_data[(new_net_data$humidity > 0 & new_net_data$humidity < 100), ]
+```
+
+********************************************************************************
+## Data Exploration
+**Pairwise Scatter Plots**  
+Scatter plots of slected variables can be seen in Figures 6, 7and 8. In Figure 6 examining the relationship between temperature and depth of sensor placement, the plot indicates that as the depth of sensor placement increases, temperature drops. Figure 7 compares incident and reflected PAR in the context of depth of sensor placement. Here, we see that the smaller depth values showed greater correlations between reflected and incident PAR, indicating that sensors at a depth of 1 got the most reflected PAR as increases in incident PAR correlated positively with increases in reflected PAR. Senors at higher depths, however, showed less and less increase in relfected PAR per increase in incident PAR. Finally, in Figure 8 which examines the relationship between temperature and humidity, the plot clearly indicates that as humidity rises, temperature drops.  
+
+Fot the time period, we chose the time between epochs 3000 and 10000 as our exploratory data visualization indicated that epochs outside of that range showed uncharacteristic data patterns, especially in the range before epoch 3000.
+
+```{r, warning=FALSE, echo=FALSE, fig.cap="Temperature and Depth", include=FALSE}
+fltr <- (net_data$epoch >= 3000) & (new_net_data$epoch <= 10000)
+timed_net_data = new_net_data[fltr, ]
+ggplot(timed_net_data, aes(x=depth, y=humid_temp)) +
+  geom_point() + xlim(0, 20) + labs(title = 'Temperature v. Depth', x='Depth', y = 'Temp')
+```
+
+
+```{r, warning=FALSE, echo=FALSE, fig.cap="PAR", include=FALSE}
+fltr <- (net_data$epoch >= 3000) & (net_data$epoch <= 10000) & (net_data$depth <= 5) & (net_data$hamabot > 0) & (net_data$hamatop > 0)
+timed_net_data = net_data[fltr, ]
+ggplot(timed_net_data, mapping = aes(x=hamatop, y=hamabot, color=depth, size=depth)) + geom_point() + 
+  xlim(0, 10000) + labs(title = 'Incident v. Reflected PAR', x='Hamatop', y = 'Hamabot')
+```
+
+
+```{r, warning=FALSE, echo=FALSE, fig.cap="Temperature and Humidity", include=FALSE}
+fltr <- (new_net_data$epoch >= 3000) & (new_net_data$epoch <= 10000)
+timed_net_data = new_net_data[fltr, ]
+ggplot(timed_net_data, aes(x=humidity, y=humid_temp)) +
+  geom_point()  + labs(title = 'Temperature v. Humidity', x='Humidity', y = 'Temp')
+```
+
+********************************************************************************
+**Incident PAR**  
+Hamabot and Hamatop are associated with relected and indident PAR, respectively. The paper disucsses how motes were able to measure photosynthetically active radiation both toward the top of the tree and toward the bottom of the tree. Motes placed further toward the top of the tree were able to measure incident PAR, and the radiation measured by these sensors came directly from the atmostpher. Sensors toward the bottom of the tree, however, mainly had access to reflected PAR. In this way, Hamatop is associated with Incident PAR and Hamabot is associated with Reflected PAR.
+
+********************************************************************************
+
+
+
+
+**Temporal Trends**  
+```{r, echo=FALSE}
+# # processing date column
+# vec1 <- vector()
+# vec2 <- vector()
+# for (i in 1:length(new_net_data$result_time)){
+#   new1 <- substr(as.character(new_net_data$result_time[i]), 1, 10)
+#   new2 <- substr(as.character(net_data$result_time[1]), 12, 26)
+#   vec1[i] <- new1
+#   vec2[i] <- new2
+# }
+# new_net_data$result_time <- vec1
+```
+
+```{r, echo=FALSE, fig.cap="Temporal Trends - Temperature", fig.width=6, fig.height=3}
+ggplot(new_net_data, mapping = aes(x=result_time, y=humid_temp, color=height)) +
+  geom_point() + labs(title = 'Temperature v. Time in Days', x='Day', y = 'Temperature') + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```

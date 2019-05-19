@@ -1,0 +1,99 @@
+---
+title: "cv_portion_project02"
+author: "Jonathan Stuart"
+date: "5/10/2019"
+output: pdf_document
+---
+
+```{r}
+library(caret)
+library(e1071)
+library(varhandle)
+library(ModelMetrics)
+```
+
+```{r}
+# reading in data
+img01 <- read.table('./image_data/image1.txt')
+img02 <- read.table('./image_data/image2.txt')
+img03 <- read.table('./image_data/image3.txt')
+
+img01$image <- 1
+img02$image <- 2
+img03$image <- 3
+
+all_img <- rbind(img01, img02, img03)
+
+col_names <- c('y', "x", "expert_label", "ndai", "sd", "corr", "df", "cf", 
+               "bf", "af", "an", "image")
+
+colnames(all_img) <- col_names
+colnames(img01) <- col_names
+colnames(img02) <- col_names
+colnames(img03) <- col_names
+```
+
+```{r}
+# splitting data into training, validation, test sets
+set.seed(657827)
+
+# creating a test set of 10% of the data
+test_size <- floor(nrow(all_img)*.1)
+test_index <- sample(seq_len(nrow(subset(all_img, image == 1))), 
+                     size = test_size)
+
+all_img_test <- all_img[test_index, ]
+remaining_all_img <- all_img[-test_index, ]
+
+# taking 20%, by length, of remaining data for validation from image1 dataset
+val_size <- floor(nrow(remaining_all_img)*.2)
+val_index <- sample(seq_len(nrow(subset(remaining_all_img, image == 1))), 
+                     size = test_size)
+all_img_val <- remaining_all_img[val_index, ]
+
+# remaining data assigned to training set
+all_img_train <- remaining_all_img[-val_index, ]
+
+all_img$expert_label2 <- as.factor(all_img$expert_label)
+all_img_train$expert_label2 <- as.factor(all_img_train$expert_label)
+all_img_test$expert_label2 <- as.factor(all_img_test$expert_label)
+```
+
+
+
+
+
+```{r}
+
+k_fold_multi_class_classifier <- function(folds, classifier) {
+  
+  svm1 <- svm(expert_label2~., data=all_img_train, 
+          method=classifier, kernal="radial", 
+          gamma=0.1, cost=10, cross = folds)
+
+  print(summary(svm1))
+
+  prediction <- predict(svm1, all_img_test)
+  xtab <- table(all_img_test$expert_label, prediction)
+  print(xtab)
+
+  loss <- abs(logLoss(all_img_test$expert_label, unfactor(prediction)))
+  return(loss)
+}
+
+k_fold_multi_class_classifier(2, "C-classification")
+
+# make list of possible classifiers
+```
+
+
+```{r}
+(15249+13210+6096)/nrow(all_img_test)
+```
+
+
+
+
+
+
+

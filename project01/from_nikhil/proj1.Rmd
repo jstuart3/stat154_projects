@@ -1,0 +1,107 @@
+---
+title: "Project1"
+author: "Nikhil Sakhamuri"
+date: "March 26, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(dplyr)
+```
+
+###5a.
+
+```{r}
+df = read_csv("../clean_data/all_data_na.csv")
+```
+
+```{r}
+refl_no_zeros = df$hamatop[df$hamatop != 0]
+log_reflected = log(refl_no_zeros)
+inc_no_zeros = df$hamabot[df$hamabot != 0]
+log_incident = log(inc_no_zeros)
+```
+
+```{r}
+hist(log_reflected)
+```
+
+
+```{r}
+hist(log_incident)
+```
+
+
+###4.
+
+
+```{r}
+library(ggplot2)
+library(magrittr)
+```
+
+
+```{r}
+net_df = read_csv("../clean_data/net_data_na.csv")
+
+by_epoch = net_df[,c(3,6,8,9,11,12)] %>% group_by(epoch) %>% summarise_each(funs(mean))
+
+plot(by_epoch$epoch, by_epoch$hamatop, type = 'l')
+```
+
+```{r}
+plot(by_epoch$epoch, by_epoch$voltage, type = 'l')
+```
+
+
+
+
+```{r}
+plot(by_epoch$epoch, by_epoch$hamabot, type = 'l')
+
+```
+
+
+
+```{r}
+plot(by_epoch$epoch, by_epoch$voltage, type = 'l')
+```
+
+
+
+```{r}
+plot(by_epoch$epoch, by_epoch$humidity, type = 'l')
+
+```
+
+
+```{r}
+volt_outlier_rej = net_df %>% filter(voltage <= 3 & voltage >= 2.0)
+```
+
+```{r}
+volt_outlier_by_epoch = volt_outlier_rej[,c(3,6,8,9,11,12)] %>% group_by(epoch) %>% summarise_each(funs(mean))
+```
+
+
+
+```{r}
+plot(volt_outlier_by_epoch$epoch, volt_outlier_by_epoch$humidity, type = 'l')
+```
+
+
+
+
+```{r}
+plot(volt_outlier_by_epoch$epoch, volt_outlier_by_epoch$hamatop, type = 'l')
+```
+
+
+```{r}
+plot(volt_outlier_by_epoch$epoch, volt_outlier_by_epoch$hamabot, type = 'l')
+```
